@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tooling for generating Avilon Photon drone mission files from warehouse shelf layout data (WMS exports).
 
-- **Customer context:** Yusen Logistics — BMW warehouse, Aisle N06
 - **Related repos:** Cart-kart/Yusen-Drone-Dashboard (viewing dashboard)
+- **Note:** X/Y/Z coordinates, transit heights, and bay positions are warehouse-specific — each site has its own spec. Do not assume values from one site apply to another.
 
 ## File Types
 
@@ -30,25 +30,36 @@ x, y, z, yaw, type, param, LeftLocation|RightLocation
 | param | 2 = scan, 6 = turn/navigate, 7 = start, 8 = end |
 | names | `LeftLocation\|RightLocation` — only on scan lines (type 2) |
 
+## Scan Pattern
+
+**Serpentine** — drone alternates direction each level, so no wasted traversal at level transitions:
+- Level N ends at one end of the aisle → Level N+1 starts from the same end, just rises in Z
+- Turn waypoints (`type 3, param 6`) are placed only when the drone needs to cross to the other end
+
 ## Shelf Location Code Convention
 
 `G [aisle] [bay_code] [level] [slot]`
 
 - **Aisle:** 2-digit (e.g. `06` for N06)
-- **Bay codes (Left):** 22, 20, 18 … 02 (even, bay1→bay11)
-- **Bay codes (Right):** 21, 19, 17 … 01 (odd, bay1→bay11)
-- **Level:** 1–7 (single digit)
+- **Bay codes (Left):** even numbers descending (22 → 02, step −2, bay1 → bay11)
+- **Bay codes (Right):** odd numbers descending (21 → 01, step −2, bay1 → bay11)
+- **Level:** single digit (1–7)
 - **Slot:** 10 = front (drone-facing), 20 = back
 
 Example: `G0622210` = Aisle 06, Left bay1, Level 2, front
 
-## Current Output (Aisle N06, Yusen BMW)
+## WMS CSV Structure
 
-- `YBMWG06_60LO_MAIN.mission` — Full 7-level serpentine scan, all bays
-- `TAG_BMW_Yusen_Main_E2.json` — ArUco tags E2 configuration
-- `Layout_Locate_G06_L7_WMS_L.csv` / `_R.csv` — WMS layout input for both sides
+```
+Direction, Scroll, Rack rows → then one Rectangle row per storage location
+```
+- `RelativeX` = bay position (increments per slot, site-defined step)
+- `RelativeY` = level (increments per level, site-defined step)
+- Left CSV and Right CSV are separate files, mirrored layout
 
 ## Naming Convention
 
-`Y[customer][aisle][scan_spec]_[variant].mission`
-- `Y` = Yusen, `BMW` = BMW site, `G06` = Aisle N06, `60LO` = 60-location scan
+`[CustomerPrefix][aisle][scan_spec]_[variant].mission`
+
+Example: `YBMWG06_60LO_MAIN.mission`
+- `Y` = Yusen, `BMW` = BMW site, `G06` = Aisle N06, `60LO` = 60-location scan, `MAIN` = primary variant
